@@ -1,6 +1,6 @@
 # TaskbarDimmer
 
-TaskbarDimmer is a script designed to reduce the brightness of the Windows taskbar to protect OLED screens. The script creates a semi-transparent black overlay above the taskbar, reducing brightness and preventing screen burn-in.
+TaskbarDimmer is a script designed to reduce the brightness of the taskbar to protect OLED screens. The script creates a semi-transparent black overlay above the taskbar, reducing brightness and preventing screen burn-in.
 
 ## Installation
 
@@ -26,7 +26,7 @@ TaskbarDimmer is a script designed to reduce the brightness of the Windows taskb
 
 ### Configuration Interface
 
-The configuration interface is accessible via the system tray icon. Right-click on the application icon in the system tray and select "Config" to open the configuration window.
+The configuration interface is accessible via the system tray icon. Right-click on the application icon in the system tray and select "Configuration" to open the configuration window.
 
 1. Modify the parameters as needed.
 2. Click "Save" to apply the changes.
@@ -51,7 +51,7 @@ To uninstall TaskbarDimmer, simply delete the script files and the configuration
 
 ## Compatibility
 
-Currently, TaskbarDimmer is functional only on Windows. Versions for Linux and macOS are planned and will be released in the future.
+Currently, TaskbarDimmer is functional on both Windows and Linux. Versions for macOS are planned and will be released in the future.
 
 ## Contribution
 

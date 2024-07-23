@@ -1,24 +1,31 @@
 import pyautogui
 import time
 import tkinter as tk
-from pystray import Icon as icon, Menu as menu, MenuItem as item
+from pystray import Icon, Menu, MenuItem
 from PIL import Image, ImageDraw
 import threading
 import queue
 import json
 import os
+import platform
+import subprocess
 import ctypes
 from ctypes import wintypes
 
 # Global declaration for icon
 tray_icon = None
 
+
 def get_documents_folder():
-    CSIDL_PERSONAL = 5  # My Documents
-    SHGFP_TYPE_CURRENT = 0  # Get current, not default value
-    buf = ctypes.create_unicode_buffer(wintypes.MAX_PATH)
-    ctypes.windll.shell32.SHGetFolderPathW(None, CSIDL_PERSONAL, None, SHGFP_TYPE_CURRENT, buf)
-    return buf.value
+    if platform.system() == "Windows":
+        csidl_personal = 5  # My Documents
+        shgfp_type_current = 0  # Get current, not default value
+        buf = ctypes.create_unicode_buffer(wintypes.MAX_PATH)
+        ctypes.windll.shell32.SHGetFolderPathW(None, csidl_personal, None, shgfp_type_current, buf)
+        return buf.value
+    else:
+        return os.path.expanduser("~/Documents")
+
 
 def load_config():
     default_config = {
@@ -31,13 +38,16 @@ def load_config():
             with open(CONFIG_FILE, "r") as file:
                 config = json.load(file)
                 # Ensure all default config keys are present and converted to integers
-                config["base_opacity_percent"] = int(config.get("base_opacity_percent", default_config["base_opacity_percent"]))
+                config["base_opacity_percent"] = int(
+                    config.get("base_opacity_percent", default_config["base_opacity_percent"]))
                 config["taskbar_height"] = int(config.get("taskbar_height", default_config["taskbar_height"]))
-                config["taskbar_detection_height"] = int(config.get("taskbar_detection_height", default_config["taskbar_detection_height"]))
+                config["taskbar_detection_height"] = int(
+                    config.get("taskbar_detection_height", default_config["taskbar_detection_height"]))
                 return config
         except json.JSONDecodeError:
             return default_config
     return default_config
+
 
 def save_config(config):
     try:
@@ -50,6 +60,7 @@ def save_config(config):
     except IOError as e:
         print(f"Error saving configuration: {e}")
 
+
 def create_black_overlay():
     overlay = tk.Toplevel()
     overlay.overrideredirect(True)
@@ -58,7 +69,24 @@ def create_black_overlay():
     overlay.attributes("-alpha", config["base_opacity_percent"] / 100)
     overlay.configure(bg='black')
     overlay.bind("<Button-1>", lambda e: "break")
+
+    # Make the window click-through on Linux
+    if platform.system() == "Linux":
+        overlay.update_idletasks()
+        window_id = overlay.winfo_id()
+        set_clickthrough_linux(window_id)
+
     return overlay
+
+
+def set_clickthrough_linux(window_id):
+    script = f'''
+    xprop -id {window_id} -f _NET_WM_WINDOW_TYPE 32a -set _NET_WM_WINDOW_TYPE _NET_WM_WINDOW_TYPE_DOCK
+    xprop -id {window_id} -f _NET_WM_STATE 32a -set _NET_WM_STATE _NET_WM_STATE_BELOW
+    xprop -id {window_id} -remove _NET_WM_WINDOW_OPACITY
+    '''
+    subprocess.run(script, shell=True, check=True)
+
 
 def create_default_icon():
     width = 64
@@ -68,12 +96,14 @@ def create_default_icon():
     dc.rectangle((width * 0.2, height * 0.2, width * 0.8, height * 0.8), fill="black")
     return image
 
-def quit_app(icon):
+
+def quit_app():
     global tray_icon
     tray_icon.stop()  # Stop the system tray icon
     global running
     running = False  # Set the global flag to stop the main loop
     root.quit()  # Close the Tkinter main window
+
 
 def open_config_window():
     config_window = tk.Toplevel(root)
@@ -109,18 +139,21 @@ def open_config_window():
 
     tk.Button(config_window, text="Save", command=save_config_window).pack(pady=20)
 
+
 def show_config_window():
     q.put(open_config_window)
+
 
 def create_system_tray_icon():
     global tray_icon
     icon_image = create_default_icon()
-    icon_menu = menu(
-        item('Configuration', show_config_window),
-        item('Quit', quit_app)
+    icon_menu = Menu(
+        MenuItem('Configuration', show_config_window),
+        MenuItem('Quit', quit_app)
     )
-    tray_icon = icon("Taskbar Dimmer", icon_image, "Taskbar Dimmer", icon_menu)
+    tray_icon = Icon("Taskbar Dimmer", icon_image, "Taskbar Dimmer", icon_menu)
     tray_icon.run()
+
 
 def smooth_transition(overlay, start_opacity, end_opacity, duration=0.1, steps=30):
     step_duration = duration / steps
@@ -132,9 +165,11 @@ def smooth_transition(overlay, start_opacity, end_opacity, duration=0.1, steps=3
         time.sleep(step_duration)
     overlay.attributes("-alpha", end_opacity)
 
+
 def keep_overlay_on_top(overlay):
     overlay.attributes("-topmost", True)
     overlay.lift()
+
 
 def process_queue():
     try:
@@ -143,6 +178,7 @@ def process_queue():
     except queue.Empty:
         pass
     root.after(100, process_queue)
+
 
 # Initialization
 user_documents = get_documents_folder()
@@ -175,9 +211,11 @@ try:
         if y >= screen_height - config["taskbar_detection_height"]:
             if not taskbar_dimmed:
                 smooth_transition(overlay, config["base_opacity_percent"] / 100, 0.0)
+                overlay.withdraw()  # Hide the overlay to allow clicks to pass through
                 taskbar_dimmed = True
         else:
             if taskbar_dimmed:
+                overlay.deiconify()  # Show the overlay again
                 smooth_transition(overlay, 0.0, config["base_opacity_percent"] / 100)
                 taskbar_dimmed = False
         overlay.update()
@@ -185,4 +223,4 @@ try:
 except KeyboardInterrupt:
     print("Exiting Taskbar Dimmer...")
 finally:
-    quit_app(icon)
+    quit_app()
