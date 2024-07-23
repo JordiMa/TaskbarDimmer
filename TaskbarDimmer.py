@@ -2,7 +2,7 @@ import pyautogui
 import time
 import tkinter as tk
 from pystray import Icon, Menu, MenuItem
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 import threading
 import queue
 import json
@@ -93,7 +93,46 @@ def create_default_icon():
     height = 64
     image = Image.new("RGBA", (width, height), (255, 255, 255, 0))
     dc = ImageDraw.Draw(image)
-    dc.rectangle((width * 0.2, height * 0.2, width * 0.8, height * 0.8), fill="black")
+
+    # Create radial gradient background
+    center_x, center_y = width // 2, height // 2
+    max_radius = width // 2
+    for i in range(max_radius):
+        fill_color = (0, 0, 0, int(255 * (1 - i / max_radius)))
+        dc.ellipse((center_x - i, center_y - i, center_x + i, center_y + i), fill=fill_color)
+
+    # Draw the taskbar-like rectangle
+    taskbar_height = height * 0.3
+    dc.rectangle((0, height - taskbar_height, width, height), fill="black")
+
+    # Draw stylized app icons in the taskbar
+    icon_width = width * 0.15
+    icon_height = taskbar_height * 0.6
+    margin = width * 0.05
+
+    for i in range(4):
+        icon_x1 = margin + i * (icon_width + margin)
+        icon_x2 = icon_x1 + icon_width
+        icon_y1 = height - taskbar_height + (taskbar_height - icon_height) / 2
+        icon_y2 = icon_y1 + icon_height
+        dc.rectangle((icon_x1, icon_y1, icon_x2, icon_y2), fill="grey", outline="white", width=1)
+
+    # Add "TD" initials to the center
+    try:
+        # Use a built-in PIL font
+        font = ImageFont.truetype("arial.ttf", size=24)
+    except IOError:
+        # If the specific font is not available, use a default PIL font
+        font = ImageFont.load_default()
+
+    text = "TD"
+    text_bbox = dc.textbbox((0, 0), text, font=font)
+    text_width = text_bbox[2] - text_bbox[0]
+    text_height = text_bbox[3] - text_bbox[1]
+    text_x = (width - text_width) / 2
+    text_y = (height - text_height) / 2 - taskbar_height / 2
+    dc.text((text_x, text_y), text, fill="white", font=font)
+
     return image
 
 
