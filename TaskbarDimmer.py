@@ -219,6 +219,26 @@ def process_queue():
     root.after(100, process_queue)
 
 
+def is_fullscreen():
+    if platform.system() == "Windows":
+        hwnd = ctypes.windll.user32.GetForegroundWindow()
+        if hwnd:
+            rect = ctypes.wintypes.RECT()
+            ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect))
+            window_width = rect.right - rect.left
+            window_height = rect.bottom - rect.top
+            if window_width == screen_width and window_height == screen_height:
+                return True
+    elif platform.system() == "Linux":
+        output = subprocess.check_output(["xprop", "-root", "_NET_ACTIVE_WINDOW"])
+        window_id = output.split()[-1].decode("utf-8")
+        if window_id != "0x0":
+            output = subprocess.check_output(["xprop", "-id", window_id, "_NET_WM_STATE"])
+            if b"_NET_WM_STATE_FULLSCREEN" in output:
+                return True
+    return False
+
+
 # Initialization
 user_documents = get_documents_folder()
 app_folder = os.path.join(user_documents, "JordiMA", "TaskbarDimmer")
@@ -247,7 +267,12 @@ try:
     while running:
         x, y = pyautogui.position()
         keep_overlay_on_top(overlay)
-        if y >= screen_height - config["taskbar_detection_height"]:
+        if is_fullscreen():
+            if not taskbar_dimmed:
+                smooth_transition(overlay, config["base_opacity_percent"] / 100, 0.0)
+                overlay.withdraw()  # Hide the overlay to allow clicks to pass through
+                taskbar_dimmed = True
+        elif y >= screen_height - config["taskbar_detection_height"]:
             if not taskbar_dimmed:
                 smooth_transition(overlay, config["base_opacity_percent"] / 100, 0.0)
                 overlay.withdraw()  # Hide the overlay to allow clicks to pass through
